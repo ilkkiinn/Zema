@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZEMA // Academic Forecast System</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#0a0a0f;--surface:#12121a;--glow:#c084fc;--glow2:#e879f9;--gold:#fbbf24;
+--text:#f0eef6;--muted:#8b85a0;--accent:#a78bfa;--danger:#f87171;
+}
+html,body{height:100%;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;cursor:default}
+
+/* --- Grain overlay --- */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
+/* --- Ambient glow --- */
+.ambient{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.ambient .orb{position:absolute;border-radius:50%;filter:blur(120px);opacity:.15;animation:drift 20s ease-in-out infinite alternate}
+.ambient .orb:nth-child(1){width:600px;height:600px;background:var(--glow);top:-20%;left:-10%}
+.ambient .orb:nth-child(2){width:500px;height:500px;background:var(--glow2);bottom:-20%;right:-10%;animation-delay:-7s}
+.ambient .orb:nth-child(3){width:300px;height:300px;background:var(--gold);top:40%;left:50%;animation-delay:-13s}
+@keyframes drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,-40px) scale(1.15)}100%{transform:translate(-30px,50px) scale(.95)}}
+
+/* --- Layout --- */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1;
+transition:opacity .8s,transform .8s;padding:2rem}
+.screen.hidden{opacity:0;pointer-events:none;transform:scale(.96)}
+
+/* --- Typography --- */
+.mono{font-family:'JetBrains Mono',monospace;letter-spacing:.05em}
+.serif{font-family:'Playfair Display',serif}
+h1{font-family:'Playfair Display',serif;font-weight:900}
+.label{font-size:.7rem;text-transform:uppercase;letter-spacing:.2em;color:var(--muted)}
+
+/* --- Boot screen --- */
+#boot .line{opacity:0;transform:translateY(12px);font-size:.85rem;color:var(--muted);margin:.35rem 0;transition:opacity .5s,transform .5s}
+#boot .line.on{opacity:1;transform:translateY(0)}
+
+/* --- Main screen --- */
+#main .question{font-size:clamp(1.6rem,5vw,3.2rem);text-align:center;line-height:1.25;margin-bottom:2.5rem}
+#main .question em{color:var(--glow2);font-style:normal}
+#main .subtitle{text-align:center;margin-bottom:3rem;color:var(--muted);font-size:.9rem}
+
+/* --- Buttons --- */
+.btn-row{display:flex;gap:1.5rem;flex-wrap:wrap;justify-content:center;position:relative}
+.btn{position:relative;padding:1rem 3rem;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:1.1rem;
+cursor:pointer;transition:all .35s cubic-bezier(.4,0,.2,1);outline:none}
+.btn::before{content:'';position:absolute;inset:-2px;border-radius:14px;z-index:-1;opacity:0;transition:opacity .3s}
+#yesBtn{background:linear-gradient(135deg,var(--glow),var(--glow2));color:#0a0a0f;box-shadow:0 0 30px rgba(192,132,252,.25)}
+#yesBtn:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 0 50px rgba(192,132,252,.45)}
+#yesBtn::before{background:linear-gradient(135deg,var(--glow2),var(--gold));opacity:0}
+#yesBtn:hover::before{opacity:1}
+#noBtn{background:var(--surface);color:var(--muted);border:1px solid rgba(255,255,255,.08)}
+#noBtn:hover{border-color:rgba(255,255,255,.15);color:var(--text)}
+#noBtn.shake{animation:shake .5s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-12px)}40%{transform:translateX(10px)}60%{transform:translateX(-8px)}80%{transform:translateX(6px)}}
+
+/* --- System message --- */
+.sys-msg{position:fixed;top:2rem;left:50%;transform:translateX(-50%);z-index:100;
+background:rgba(18,18,26,.92);border:1px solid rgba(192,132,252,.25);border-radius:10px;
+padding:.85rem 1.8rem;font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;transform:translateX(-50%) translateY(-10px);
+backdrop-filter:blur(12px);max-width:90vw;text-align:center;white-space:nowrap}
+.sys-msg.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+.sys-msg .icon{margin-right:.5rem}
+
+/* --- YES celebration --- */
+#celebrate{text-align:center;overflow-y:auto;max-height:100vh;padding:3rem 1.5rem}
+#celebrate .flash{position:fixed;inset:0;background:var(--glow);opacity:0;pointer-events:none;z-index:50;animation:flash 1s forwards}
+@keyframes flash{0%{opacity:.7}100%{opacity:0}}
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .7s,transform .7s}
+.reveal.on{opacity:1;transform:translateY(0)}
+.big-yes{font-size:clamp(4rem,12vw,9rem);font-weight:900;background:linear-gradient(135deg,var(--glow),var(--glow2),var(--gold));
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.stamp{display:inline-block;border:4px solid var(--gold);border-radius:16px;padding:1rem 2.5rem;margin-top:1.5rem;
+font-size:clamp(.9rem,2.5vw,1.4rem);font-weight:900;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;
+transform:rotate(-4deg);position:relative;animation:stampIn .6s cubic-bezier(.17,.67,.29,1.35) forwards}
+@keyframes stampIn{0%{transform:rotate(-4deg) scale(3);opacity:0}100%{transform:rotate(-4deg) scale(1);opacity:1}}
+.heart-msg{max-width:520px;margin:0 auto;font-size:1.1rem;line-height:1.75;color:var(--muted);font-style:italic}
+.heart-msg strong{color:var(--text);font-style:normal}
+.verified-list{list-style:none;padding:0;text-align:left;display:inline-block;margin:1.5rem 0}
+.verified-list li{padding:.4rem 0;font-size:.95rem;color:var(--muted)}
+.verified-list li::before{content:'✓ ';color:var(--glow);font-weight:700;margin-right:.4rem}
+.verified-list li:last-child{color:var(--glow2)}
+
+/* --- Motivation button --- */
+.motiv-btn{margin-top:2rem;padding:.85rem 2rem;background:transparent;border:1px solid var(--accent);color:var(--accent);
+border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .3s}
+.motiv-btn:hover{background:var(--accent);color:var(--bg);transform:scale(1.03)}
+.motiv-quote{min-height:3rem;margin-top:1.2rem;font-size:1rem;color:var(--glow2);transition:opacity .3s}
+
+/* --- Report card --- */
+.report{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:2rem;
+max-width:380px;margin:2.5rem auto 0;text-align:left}
+.report h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.2em;color:var(--muted);margin-bottom:1.2rem;font-weight:500}
+.report-row{display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.9rem}
+.report-row span:last-child{color:var(--glow);font-weight:600}
+.report-row:last-child span:last-child{color:var(--gold);font-weight:700;font-size:1rem}
+
+/* --- FAQ --- */
+.faq{max-width:480px;margin:2.5rem auto 0;text-align:left}
+.faq h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.2em;color:var(--muted);margin-bottom:1rem;font-weight:500;text-align:center}
+.faq-item{margin-bottom:1.2rem}
+.faq-item .q{font-weight:700;font-size:.9rem;margin-bottom:.25rem}
+.faq-item .a{font-size:.85rem;color:var(--muted)}
+
+/* --- Hover floaters --- */
+.floater{position:fixed;pointer-events:none;font-size:.75rem;color:var(--accent);opacity:0;z-index:80;
+transition:opacity .4s,transform 1.5s;font-weight:500;letter-spacing:.08em}
+.floater.on{opacity:.7;transform:translateY(-40px)!important}
+
+/* --- Confetti canvas --- */
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:60}
+
+/* --- Loading screen --- */
+#loading{z-index:10}
+.load-line{font-size:.9rem;color:var(--muted);opacity:0;margin:.5rem 0;transition:opacity .4s}
+.load-line.on{opacity:1}
+.load-bar{width:260px;height:4px;background:rgba(255,255,255,.06);border-radius:4px;margin:1.5rem auto 0;overflow:hidden}
+.load-fill{height:100%;width:0;background:linear-gradient(90deg,var(--glow),var(--glow2));border-radius:4px;transition:width .6s}
+
+/* --- Responsive --- */
+@media(max-width:500px){.btn{padding:.85rem 2rem;font-size:1rem}.btn-row{gap:1rem}}
+</style>
+</head>
+<body>
+<div class="ambient"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+<canvas id="confetti"></canvas>
+
+<!-- BOOT -->
+<div class="screen" id="boot">
+  <div class="line mono">[ SYSTEM ] Initializing academic forecast engine…</div>
+  <div class="line mono">[ SECURE ] Confidence protocols loaded.</div>
+  <div class="line mono">[ DATA   ] Subject identified: <span style="color:var(--glow2)">ZEMA</span></div>
+  <div class="line mono">[ STATUS ] All systems nominal.</div>
+  <div class="line mono" style="color:var(--glow)">[ READY  ] Proceeding to analysis…</div>
+</div>
+
+<!-- MAIN -->
+<div class="screen hidden" id="main">
+  <p class="label mono" style="margin-bottom:1.5rem">Academic Forecast System v2.0</p>
+  <h1 class="question">Will <em>Zema</em> pass her exams?</h1>
+  <p class="subtitle mono">Please select the correct answer.</p>
+  <div class="btn-row">
+    <button class="btn" id="yesBtn" onclick="handleYes()">YES</button>
+    <button class="btn" id="noBtn" onclick="handleNo()">NO</button>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="screen hidden" id="loading">
+  <div class="load-line mono">Analyzing…</div>
+  <div class="load-line mono">Checking notes…</div>
+  <div class="load-line mono">Consulting destiny…</div>
+  <div class="load-line mono mono" style="color:var(--glow)">Final answer ready.</div>
+  <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
+</div>
+
+<!-- CELEBRATE -->
+<div class="screen hidden" id="celebrate">
+  <div class="flash" id="flashEl" style="display:none"></div>
+  <p class="reveal mono label" style="margin-bottom:.5rem">Correct answer detected.</p>
+  <div class="reveal big-yes serif">YES.</div>
+  <p class="reveal" style="font-size:clamp(1rem,3vw,1.5rem);margin-top:.5rem;font-weight:700">ZEMA WILL PASS HER EXAMS.</p>
+
+  <p class="reveal" style="margin-top:2rem;font-size:.85rem;color:var(--muted)">This conclusion was verified by:</p>
+  <ul class="reveal verified-list">
+    <li>Her brain</li>
+    <li>Her effort</li>
+    <li>Her resilience</li>
+    <li>And one extremely biased person who believes in her</li>
+  </ul>
+
+  <div class="reveal"><div class="stamp serif">Certified Future Graduate</div></div>
+
+  <div class="reveal heart-msg" style="margin-top:2.5rem">
+    <strong>"I believe in you more than you believe in yourself sometimes.<br>
+    And until you catch up, I'll believe enough for both of us."</strong>
+  </div>
+
+  <div class="reveal">
+    <button class="motiv-btn" onclick="showMotivation()">⚡ Emergency Motivation</button>
+    <p class="motiv-quote" id="motivQuote"></p>
+  </div>
+
+  <div class="reveal report">
+    <h3 class="mono">Academic Success Report</h3>
+    <div class="report-row"><span>Intelligence</span><span>Present</span></div>
+    <div class="report-row"><span>Potential</span><span>High</span></div>
+    <div class="report-row"><span>Stress</span><span>Temporary</span></div>
+    <div class="report-row"><span>Final Result</span><span>PASS ✓</span></div>
+  </div>
+
+  <div class="reveal faq">
+    <h3 class="mono">Frequently Asked Questions</h3>
+    <div class="faq-item"><p class="q">Q: What if I'm scared?</p><p class="a">A: Still passing.</p></div>
+    <div class="faq-item"><p class="q">Q: What if I press No?</p><p class="a">A: That's not how this works.</p></div>
+    <div class="faq-item"><p class="q">Q: Is this biased?</p><p class="a">A: Extremely.</p></div>
+    <div class="faq-item"><p class="q">Q: Can I fail?</p><p class="a">A: The system does not recognize that word.</p></div>
+  </div>
+  <p class="reveal" style="margin-top:3rem;font-size:.75rem;color:var(--muted)">Made with love and a little delusion. You've got this, Zema. 💜</p>
+</div>
+
+<!-- System message toast -->
+<div class="sys-msg mono" id="sysMsg"><span class="icon">⚠</span><span id="sysTxt"></span></div>
+
+<script>
+// --- State ---
+let noCount = 0;
+
+// --- Boot sequence ---
+(function boot(){
+  const lines = document.querySelectorAll('#boot .line');
+  lines.forEach((l,i)=>{setTimeout(()=>l.classList.add('on'), 600+i*700)});
+  setTimeout(()=>{
+    document.getElementById('boot').classList.add('hidden');
+    document.getElementById('main').classList.remove('hidden');
+  }, 600+lines.length*700+800);
+})();
+
+// --- System message ---
+let msgTimer;
+function sysMessage(txt, dur=2500){
+  const el=document.getElementById('sysMsg'), t=document.getElementById('sysTxt');
+  t.textContent=txt; el.classList.add('show');
+  clearTimeout(msgTimer);
+  msgTimer=setTimeout(()=>el.classList.remove('show'), dur);
+}
+
+// --- NO handler ---
+const noTexts=["Be serious","Try again","Wrong energy","Nope","Denied","Lol no","💀"];
+function handleNo(){
+  noCount++;
+  const btn=document.getElementById('noBtn'), yes=document.getElementById('yesBtn');
+  switch(true){
+    case noCount===1:
+      btn.classList.remove('shake');void btn.offsetWidth;btn.classList.add('shake');
+      sysMessage("Hmm… that seems incorrect.");break;
+    case noCount===2:
+      yes.style.padding='1.2rem 3.8rem';yes.style.fontSize='1.25rem';
+      sysMessage("Recalculating… still no.");break;
+    case noCount===3:
+      sysMessage("⛔ Negative input rejected.");break;
+    case noCount===4:
+      btn.style.position='relative';
+      btn.style.left=(Math.random()>.5?1:-1)*60+'px';
+      btn.style.top=(Math.random()>.5?1:-1)*40+'px';
+      sysMessage("The button is trying to escape your bad decisions.");break;
+    case noCount===5:
+      btn.textContent=noTexts[Math.floor(Math.random()*noTexts.length)];
+      sysMessage("This action has been reported.",3000);break;
+    case noCount===6:
+      btn.style.fontSize='.7rem';btn.style.padding='.4rem 1rem';btn.style.opacity='.5';
+      yes.style.padding='1.5rem 5rem';yes.style.fontSize='1.4rem';
+      sysMessage("Delusion detected. Auto-correcting…");break;
+    case noCount>=7:
+      btn.style.opacity='0';btn.style.pointerEvents='none';
+      yes.style.padding='1.6rem 6rem';yes.style.fontSize='1.5rem';
+      sysMessage("Thank you for cooperating with reality.",4000);break;
+  }
+}
+
+// --- Dodge on hover after click 4 ---
+document.getElementById('noBtn').addEventListener('mouseover',function(){
+  if(noCount>=4&&noCount<7){
+    this.style.left=(Math.random()-.5)*200+'px';
+    this.style.top=(Math.random()-.5)*120+'px';
+  }
+});
+
+// --- YES handler ---
+function handleYes(){
+  document.getElementById('main').classList.add('hidden');
+  document.getElementById('loading').classList.remove('hidden');
+  const lines=document.querySelectorAll('#loading .load-line');
+  const fill=document.getElementById('loadFill');
+  lines.forEach((l,i)=>setTimeout(()=>{l.classList.add('on');fill.style.width=(i+1)/lines.length*100+'%'},i*900));
+  setTimeout(()=>{
+    document.getElementById('loading').classList.add('hidden');
+    showCelebration();
+  }, lines.length*900+800);
+}
+
+function showCelebration(){
+  const c=document.getElementById('celebrate');
+  c.classList.remove('hidden');
+  document.getElementById('flashEl').style.display='block';
+  fireConfetti();
+  const reveals=c.querySelectorAll('.reveal');
+  reveals.forEach((r,i)=>setTimeout(()=>r.classList.add('on'),400+i*500));
+}
+
+// --- Confetti ---
+function fireConfetti(){
+  const canvas=document.getElementById('confetti'),ctx=canvas.getContext('2d');
+  canvas.width=innerWidth;canvas.height=innerHeight;
+  const pieces=[],colors=['#c084fc','#e879f9','#fbbf24','#a78bfa','#f0abfc','#fcd34d'];
+  for(let i=0;i<180;i++){
+    pieces.push({x:innerWidth/2,y:innerHeight/2,vx:(Math.random()-.5)*18,vy:Math.random()*-16-4,
+    w:Math.random()*8+4,h:Math.random()*6+2,c:colors[Math.floor(Math.random()*colors.length)],
+    r:Math.random()*6.28,rv:(Math.random()-.5)*.3,g:.35});
+  }
+  let frame=0;
+  (function draw(){
+    if(frame++>200)return ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;p.vy+=p.g;p.r+=p.rv;p.vx*=.99;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);
+      ctx.fillStyle=p.c;ctx.globalAlpha=Math.max(0,1-frame/200);
+      ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();
+    });
+    requestAnimationFrame(draw);
+  })();
+}
+
+// --- Motivation ---
+const motivations=[
+  "You are smarter than your stress.",
+  "Scared people pass exams every year.",
+  "Locked in beats perfect.",
+  "You've survived worse weeks.",
+  "Your future self is already proud.",
+  "Breathe. Focus. Dominate.",
+  "The exam is temporary. Your degree is forever.",
+  "Panic is just excitement with bad branding.",
+  "You didn't come this far to only come this far.",
+  "Even Einstein probably panicked once. Probably."
+];
+function showMotivation(){
+  const el=document.getElementById('motivQuote');
+  el.style.opacity=0;
+  setTimeout(()=>{el.textContent='"'+motivations[Math.floor(Math.random()*motivations.length)]+'"';el.style.opacity=1},200);
+}
+
+
+</script>
+</body>
+</html>
