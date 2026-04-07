@@ -70,7 +70,7 @@ backdrop-filter:blur(12px);max-width:90vw;text-align:center;white-space:nowrap}
 .sys-msg .icon{margin-right:.5rem}
 
 /* --- YES celebration --- */
-#celebrate{text-align:center;overflow-y:auto;max-height:100vh;padding:3rem 1.5rem}
+#celebrate{text-align:center;overflow-y:auto;max-height:100vh;padding:3rem 1.5rem;justify-content:flex-start;padding-top:clamp(2rem,6vh,4rem)}
 #celebrate .flash{position:fixed;inset:0;background:var(--glow);opacity:0;pointer-events:none;z-index:50;animation:flash 1s forwards}
 @keyframes flash{0%{opacity:.7}100%{opacity:0}}
 .reveal{opacity:0;transform:translateY(30px);transition:opacity .7s,transform .7s}
@@ -125,7 +125,26 @@ transition:opacity .4s,transform 1.5s;font-weight:500;letter-spacing:.08em}
 .load-fill{height:100%;width:0;background:linear-gradient(90deg,var(--glow),var(--glow2));border-radius:4px;transition:width .6s}
 
 /* --- Responsive --- */
-@media(max-width:500px){.btn{padding:.85rem 2rem;font-size:1rem}.btn-row{gap:1rem}}
+@media(max-width:600px){
+  .screen{padding:1.5rem 1rem}
+  #boot .line{font-size:.7rem}
+  .btn{padding:.9rem 2.2rem;font-size:1rem}
+  .btn-row{gap:1rem}
+  .sys-msg{font-size:.72rem;padding:.7rem 1.2rem;white-space:normal;max-width:88vw;top:1rem}
+  #celebrate{padding:2rem 1.2rem 4rem;position:fixed;inset:0;overflow-y:auto;display:block;max-height:none}
+  .big-yes{font-size:clamp(3rem,14vw,6rem)}
+  .stamp{padding:.8rem 1.5rem;font-size:.8rem;letter-spacing:.1em}
+  .heart-msg{font-size:.95rem;padding:0 .5rem}
+  .verified-list li{font-size:.85rem}
+  .report{padding:1.5rem;margin-left:.5rem;margin-right:.5rem}
+  .faq{padding:0 .5rem}
+  .label{font-size:.6rem}
+  #main .subtitle{font-size:.78rem;margin-bottom:2rem}
+  .load-bar{width:200px}
+  .ambient .orb:nth-child(1){width:350px;height:350px}
+  .ambient .orb:nth-child(2){width:300px;height:300px}
+  .ambient .orb:nth-child(3){width:180px;height:180px}
+}
 </style>
 </head>
 <body>
@@ -248,30 +267,39 @@ function handleNo(){
       sysMessage("⛔ Negative input rejected.");break;
     case noCount===4:
       btn.style.position='relative';
-      btn.style.left=(Math.random()>.5?1:-1)*60+'px';
-      btn.style.top=(Math.random()>.5?1:-1)*40+'px';
+      const jx=Math.min(60,innerWidth*.12), jy=Math.min(40,innerHeight*.08);
+      btn.style.left=(Math.random()>.5?1:-1)*jx+'px';
+      btn.style.top=(Math.random()>.5?1:-1)*jy+'px';
       sysMessage("The button is trying to escape your bad decisions.");break;
     case noCount===5:
       btn.textContent=noTexts[Math.floor(Math.random()*noTexts.length)];
       sysMessage("This action has been reported.",3000);break;
     case noCount===6:
       btn.style.fontSize='.7rem';btn.style.padding='.4rem 1rem';btn.style.opacity='.5';
-      yes.style.padding='1.5rem 5rem';yes.style.fontSize='1.4rem';
+      yes.style.padding=innerWidth<600?'1.1rem 3rem':'1.5rem 5rem';
+      yes.style.fontSize=innerWidth<600?'1.15rem':'1.4rem';
       sysMessage("Delusion detected. Auto-correcting…");break;
     case noCount>=7:
       btn.style.opacity='0';btn.style.pointerEvents='none';
-      yes.style.padding='1.6rem 6rem';yes.style.fontSize='1.5rem';
+      yes.style.padding=innerWidth<600?'1.2rem 3.5rem':'1.6rem 6rem';
+      yes.style.fontSize=innerWidth<600?'1.2rem':'1.5rem';
       sysMessage("Thank you for cooperating with reality.",4000);break;
   }
 }
 
-// --- Dodge on hover after click 4 ---
-document.getElementById('noBtn').addEventListener('mouseover',function(){
+// --- Dodge on hover/touch after click 4 ---
+function dodgeNo(){
+  const btn=document.getElementById('noBtn');
   if(noCount>=4&&noCount<7){
-    this.style.left=(Math.random()-.5)*200+'px';
-    this.style.top=(Math.random()-.5)*120+'px';
+    const maxX=Math.min(80,innerWidth*.15), maxY=Math.min(50,innerHeight*.1);
+    btn.style.left=(Math.random()-.5)*maxX*2+'px';
+    btn.style.top=(Math.random()-.5)*maxY*2+'px';
   }
-});
+}
+document.getElementById('noBtn').addEventListener('mouseover',dodgeNo);
+document.getElementById('noBtn').addEventListener('touchstart',function(e){
+  if(noCount>=4&&noCount<7){e.preventDefault();dodgeNo()}
+},{passive:false});
 
 // --- YES handler ---
 function handleYes(){
